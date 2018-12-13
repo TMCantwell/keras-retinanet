@@ -16,10 +16,10 @@ if "KERAS_BACKEND" in os.environ:
     _BACKEND = _backend
 
 if _BACKEND == "cntk":
-    from .cntk_backend import *  # noqa: F401,F403
+    from .cntk_backend import *
 elif _BACKEND == "theano":
-    from .theano_backend import *  # noqa: F401,F403
+    from .theano_backend import *
 elif _BACKEND == "tensorflow":
-    from .tensorflow_backend import *  # noqa: F401,F403
+    from .tensorflow_backend import *
 else:
     raise ValueError("Unknown backend: " + str(_BACKEND))
