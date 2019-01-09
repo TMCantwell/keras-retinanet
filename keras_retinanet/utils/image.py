@@ -20,7 +20,7 @@ import cv2
 from PIL import Image
 from astropy.io import fits
 from .transform import change_transform_origin
-
+from skimage.transform import rescale
 
 def read_image_fits(path):
     """ Read an image in fits format.
@@ -207,6 +207,7 @@ def resize_image(img, min_side=800, max_side=1333):
     scale = compute_resize_scale(img.shape, min_side=min_side, max_side=max_side)
 
     # resize the image with the computed scale
-    img = cv2.resize(img, None, fx=scale, fy=scale)
+    #img = cv2.resize(img, None, fx=scale, fy=scale)
+    img = rescale(img, scale, anti_aliasing=True)
 
     return img, scale
