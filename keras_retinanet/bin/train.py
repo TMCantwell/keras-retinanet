@@ -24,6 +24,7 @@ import warnings
 import keras
 import keras.preprocessing.image
 import tensorflow as tf
+import json
 
 # Allow relative imports when being executed as script.
 if __name__ == "__main__" and __package__ is None:
@@ -480,13 +481,16 @@ def main(args=None):
     )
 
     # start training
-    training_model.fit_generator(
+    history = training_model.fit_generator(
         generator=train_generator,
         steps_per_epoch=args.steps,
         epochs=args.epochs,
         verbose=1,
         callbacks=callbacks,
     )
+    history_dict = history.history
+    json.dump(history_dict, open("/mnt/history.json", 'w'))
+
 
 
 if __name__ == '__main__':
