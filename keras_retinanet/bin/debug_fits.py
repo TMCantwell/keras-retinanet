@@ -37,13 +37,14 @@ from ..preprocessing.kitti import KittiGenerator
 from ..preprocessing.open_images import OpenImagesGenerator
 from ..utils.keras_version import check_keras_version
 from ..utils.transform import random_transform_generator
+from ..utils.visualization import draw_annotations, draw_boxes
 from ..utils.anchors import anchors_for_shape, compute_gt_annotations
 from ..utils.config import read_config_file, parse_anchor_parameters
 
 
+
 def draw_box(ax, box, color, thickness=2):
     """ Draws a box on an image with a given color.
-
     # Arguments
         ax        : The subplot to draw on.
         box       : A list of 4 elements (x1, y1, x2, y2).
@@ -56,7 +57,6 @@ def draw_box(ax, box, color, thickness=2):
 
 def draw_boxes(ax, boxes, color, thickness=2):
     """ Draws boxes on an image with a given color.
-
     # Arguments
         ax        : The subplot to draw on.
         boxes     : A [N, 4] matrix (x1, y1, x2, y2).
@@ -69,7 +69,6 @@ def draw_boxes(ax, boxes, color, thickness=2):
 
 def draw_caption(ax, box, caption):
     """ Draws a caption above the box in an image.
-
     # Arguments
         image   : The image to draw on.
         box     : A list of 4 elements (x1, y1, x2, y2).
@@ -81,7 +80,6 @@ def draw_caption(ax, box, caption):
 
 def draw_annotations(ax, annotations, color='g', label_to_name=None):
     """ Draws annotations in an image.
-
     # Arguments
         image         : The image to draw on.
         annotations   : A [N, 5] matrix (x1, y1, x2, y2, label) or dictionary containing bboxes (shaped [N, 4]) and labels (shaped [N]).
@@ -101,6 +99,7 @@ def draw_annotations(ax, annotations, color='g', label_to_name=None):
         caption = '{}'.format(label_to_name(label) if label_to_name else label)
         draw_caption(ax, annotations['bboxes'][i], caption)
         draw_box(ax, annotations['bboxes'][i], color=c)
+
 
 
 def create_generator(args):
@@ -239,31 +238,33 @@ def run(generator, args, anchor_params):
         # load the data
         image       = generator.load_image(i)
         annotations = generator.load_annotations(i)
+        if len(annotations['labels']) > 0 :
+            # apply random transformations
+            if args.random_transform:
+                image, annotations = generator.random_transform_group_entry(image, annotations)
 
-        # apply random transformations
-        if args.random_transform:
-            image, annotations = generator.random_transform_group_entry(image, annotations)
+            # resize the image and annotations
+            if args.resize:
+                image, image_scale = generator.resize_image(image)
+                annotations['bboxes'] *= image_scale
 
-        # resize the image and annotations
-        if args.resize:
-            image, image_scale = generator.resize_image(image)
-            annotations['bboxes'] *= image_scale
+            anchors = anchors_for_shape(image.shape, anchor_params=anchor_params)
+            positive_indices, _, max_indices = compute_gt_annotations(anchors, annotations['bboxes'])
+            fig,ax = plt.subplots(1)
+            # draw anchors on the image
+            if args.anchors:
+                draw_boxes(ax, anchors[positive_indices], 'y', thickness=1)
 
-        anchors = anchors_for_shape(image.shape, anchor_params=anchor_params)
-        positive_indices, _, max_indices = compute_gt_annotations(anchors, annotations['bboxes'])
-        fig,ax = plt.subplots(1)
-        # draw anchors on the image
-        if args.anchors:
-            draw_boxes(ax, anchors[positive_indices], 'y', thickness=1)
+            # draw annotations on the image
+            if args.annotations:
+                # draw annotations in red
+                draw_annotations(ax, annotations, color='r', label_to_name=generator.label_to_name)
 
-        # draw annotations on the image
-        if args.annotations:
-            # draw annotations in red
-            draw_annotations(ax, annotations, color='r', label_to_name=generator.label_to_name)
 
-            # draw regressed anchors in green to override most red annotations
-            # result is that annotations without anchors are red, with anchors are green
-            draw_boxes(ax, annotations['bboxes'][max_indices[positive_indices], :], 'g')
+                # draw regressed anchors in green to override most red annotations
+                # result is that annotations without anchors are red, with anchors are green
+                draw_boxes(ax, annotations['bboxes'][max_indices[positive_indices], :], 'g')
+
         b = image.copy()
         b[:, :, 1] = 0
         b[:, :, 2] = 0
@@ -293,6 +294,7 @@ def main(args=None):
     anchor_params = None
     if args.config and 'anchor_parameters' in args.config:
         anchor_params = parse_anchor_parameters(args.config)
+
 
     if args.loop:
         while run(generator, args, anchor_params=anchor_params):
